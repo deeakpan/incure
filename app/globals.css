@@ -1,26 +1,252 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #e8f5e9;
+  --panel-bg: #0d1a14;
+  --border: #1a3a22;
+  --primary: #00e676;
+  --danger: #c62828;
+  --warning: #ff6f00;
+  --text-muted: #6a8f72;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-grotesk), sans-serif;
+  --font-mono: var(--font-space-grotesk), monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+/* Force black background everywhere */
+html {
+  background: #000000 !important;
+  background-color: #000000 !important;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
+  background: #000000 !important;
+  background-color: #000000 !important;
+  margin: 0;
+  padding: 0;
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-space-grotesk), sans-serif;
+  overflow: hidden;
 }
+
+#__next,
+#__next > div,
+#__next > div > div,
+#__next > div > div > div {
+  background: #000000 !important;
+  background-color: #000000 !important;
+}
+
+[data-rk],
+[data-rk] > div,
+[data-rk] > div > div,
+[data-rk] > div > div > div {
+  background: #000000 !important;
+  background-color: #000000 !important;
+}
+
+.font-logo {
+  font-family: var(--font-playfair-display), serif;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.font-stopwatch {
+  font-family: var(--font-rajdhani), 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+  transition: all 0.3s ease;
+}
+
+.font-stopwatch:hover {
+  text-shadow: 0 0 20px rgba(0, 255, 136, 0.8), 0 0 30px rgba(0, 255, 136, 0.4);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Remove any RainbowKit header bars */
+[data-rk] > div:first-child {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Customize RainbowKit - Dark mode theme */
+[data-rk] * {
+  --rk-colors-accentColor: #ffffff !important;
+  --rk-colors-actionButtonBorder: #333333 !important;
+  --rk-colors-actionButtonBorderMobile: #333333 !important;
+  --rk-colors-actionButtonSecondaryBackground: #1a1a1a !important;
+  --rk-colors-closeButton: #ffffff !important;
+  --rk-colors-closeButtonBackground: #1a1a1a !important;
+  --rk-colors-connectButtonBackground: #00aa55 !important;
+  --rk-colors-connectButtonBackgroundError: #1a1a1a !important;
+  --rk-colors-connectButtonInnerBackground: #00aa55 !important;
+  --rk-colors-connectButtonText: #000000 !important;
+  --rk-colors-connectButtonTextError: #ff4444 !important;
+  --rk-colors-error: #ff4444 !important;
+  --rk-colors-generalBorder: #333333 !important;
+  --rk-colors-generalBorderDim: #1a1a1a !important;
+  --rk-colors-menuItemBackground: #0d0d0d !important;
+  --rk-colors-modalBackdrop: rgba(0, 0, 0, 0.8) !important;
+  --rk-colors-modalBackground: #0d0d0d !important;
+  --rk-colors-modalBorder: #333333 !important;
+  --rk-colors-modalText: #ffffff !important;
+  --rk-colors-modalTextDim: #999999 !important;
+  --rk-colors-modalTextSecondary: #cccccc !important;
+  --rk-colors-profileAction: #1a1a1a !important;
+  --rk-colors-profileActionHover: #2a2a2a !important;
+  --rk-colors-profileForeground: #0d0d0d !important;
+  --rk-colors-selectedOptionBorder: #555555 !important;
+  --rk-colors-standby: #999999 !important;
+}
+
+/* Connect button - fully green - TARGET ALL POSSIBLE SELECTORS */
+button[data-testid="rk-connect-button"],
+button[aria-haspopup="true"],
+[data-rk] button[data-testid="rk-connect-button"],
+[data-rk] button[aria-haspopup="true"],
+[data-rk] > div > button,
+[data-rk] button:first-child,
+button.rainbow-kit-connect-button,
+[data-rk] .rainbow-kit-connect-button {
+  background: #00aa55 !important;
+  background-color: #00aa55 !important;
+  border: 2px solid #00aa55 !important;
+  border-color: #00aa55 !important;
+  color: #000000 !important;
+  border-radius: 0.5rem !important;
+  font-weight: 700 !important;
+  transition: all 0.2s !important;
+}
+
+button[data-testid="rk-connect-button"]:hover,
+button[aria-haspopup="true"]:hover,
+[data-rk] button[data-testid="rk-connect-button"]:hover,
+[data-rk] button[aria-haspopup="true"]:hover {
+  background: #008844 !important;
+  background-color: #008844 !important;
+  border-color: #008844 !important;
+  box-shadow: 0 0 15px rgba(0, 170, 85, 0.3) !important;
+}
+
+/* Reset modal buttons back to dark */
+[data-rk] [role="dialog"] button:not([data-testid="rk-connect-button"]):not([aria-haspopup="true"]) {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border: 1px solid #333333 !important;
+}
+
+[data-rk] button[data-testid="rk-connect-button"]:focus,
+[data-rk] button[aria-haspopup="true"]:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(0, 230, 118, 0.3) !important;
+}
+
+/* Force InCure text color */
+[data-incure-text] {
+  color: #00aa55 !important;
+}
+
+/* Force header text colors using data attributes */
+[data-infection-value] {
+  color: #ff4444 !important;
+}
+
+[data-spread-value],
+[data-strain-value],
+[data-balance-value] {
+  color: #00aa55 !important;
+}
+
+/* Other buttons in modal - dark mode */
+[data-rk] button:not([data-testid="rk-connect-button"]):not([aria-haspopup="true"]) {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  border-radius: 0.5rem !important;
+  font-weight: 600 !important;
+  transition: all 0.2s !important;
+}
+
+[data-rk] button:not([data-testid="rk-connect-button"]):not([aria-haspopup="true"]):hover {
+  background: #2a2a2a !important;
+  border-color: #555555 !important;
+}
+
+/* Modal - dark mode */
+[data-rk] [role="dialog"],
+[data-rk] div[style*="position: fixed"],
+[data-rk] div[style*="z-index"] {
+  background: #0d0d0d !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+
+/* Modal backdrop */
+[data-rk] div[style*="backdrop"],
+[data-rk] div[style*="background"] {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Modal content */
+[data-rk] h1,
+[data-rk] h2,
+[data-rk] h3,
+[data-rk] p,
+[data-rk] span,
+[data-rk] div {
+  color: #ffffff !important;
+}
+
+[data-rk] a {
+  color: #ffffff !important;
+}
+
+[data-rk] a:hover {
+  color: #cccccc !important;
+}
+
+/* Wallet options in modal */
+[data-rk] button[type="button"] {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+
+[data-rk] button[type="button"]:hover {
+  background: #2a2a2a !important;
+  border-color: #555555 !important;
+}
+
+/* Account info when connected */
+[data-rk] div[data-testid*="account"],
+[data-rk] div[data-testid*="profile"] {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+}
+
+/* Hide scrollbar */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
