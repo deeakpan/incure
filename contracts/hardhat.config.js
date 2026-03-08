@@ -19,10 +19,11 @@ module.exports = {
     ],
   },
   networks: {
-    fuji: {
-      url: process.env.FUJI_RPC_URL || "https://api.avax-test.network/ext/bc/C/rpc",
+    // Somnia Testnet
+    somniaTestnet: {
+      url: process.env.SOMNIA_TESTNET_RPC_URL || "https://api.infra.testnet.somnia.network",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 43113,
+      chainId: 50312,
     },
   },
   paths: {

@@ -30,7 +30,7 @@ const rajdhani = Rajdhani({
 
 export const metadata: Metadata = {
   title: "InCure - Global Antidote Experiment",
-  description: "Real-time, on-chain pandemic strategy game on Avalanche",
+  description: "Real-time, on-chain pandemic strategy game on Ronin",
 };
 
 export default function RootLayout({

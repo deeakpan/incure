@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
+    "@somnia-chain/reactivity": "^0.1.10",
     "@tanstack/react-query": "^5.90.21",
     "framer-motion": "^12.34.3",
     "leaflet": "^1.9.4",

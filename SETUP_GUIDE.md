@@ -83,7 +83,7 @@ Just copy the connection string to `backend/.env`
 - [x] GeoJSON file downloaded
 - [ ] PostgreSQL database set up (or use cloud)
 - [ ] Backend `.env` file created
-- [ ] Contracts deployed to Fuji
+- [ ] Contracts deployed to Ronin testnet
 - [ ] Frontend `.env` with contract addresses
 - [ ] Run `npm install` in all folders
 - [ ] Start backend: `cd backend && npm start`
@@ -96,8 +96,7 @@ Just copy the connection string to `backend/.env`
 ### `backend/.env`
 ```env
 DATABASE_URL=postgresql://user:pass@host:5432/incure
-FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-FUJI_WS_URL=wss://api.avax-test.network/ext/bc/C/ws
+RONIN_RPC_URL=https://saigon-testnet.roninchain.com/rpc
 INCURE_GAME_ADDRESS=0x... (after deploying contracts)
 DEPLOYER_PRIVATE_KEY=your_private_key
 PORT=3001

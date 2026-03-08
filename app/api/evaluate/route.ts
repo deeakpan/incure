@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, http, keccak256, encodePacked, hexToBytes, getAddress, createWalletClient, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { avalancheFuji } from 'viem/chains';
+import { defineChain } from 'viem';
+
+const somniaTestnet = defineChain({
+  id: 50312,
+  name: 'Somnia Testnet',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Somnia Test Token',
+    symbol: 'STT',
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL || 'https://api.infra.testnet.somnia.network'],
+    },
+  },
+});
+import { checkRateLimit } from './rateLimiter';
 
 // Environment variables are read at runtime in the POST function
 
@@ -150,7 +166,7 @@ export async function POST(request: NextRequest) {
     // Get env vars at runtime
     const gameAddress = process.env.NEXT_PUBLIC_GAME_CONTRACT_ADDRESS as `0x${string}` | undefined;
     let oracleKeyRaw = process.env.TRUSTED_ORACLE_PRIVATE_KEY;
-    const rpcUrl = process.env.NEXT_PUBLIC_FUJI_RPC_URL || process.env.FUJI_RPC_URL;
+    const rpcUrl = process.env.NEXT_PUBLIC_SOMNIA_TESTNET_RPC_URL || process.env.SOMNIA_TESTNET_RPC_URL || 'https://api.infra.testnet.somnia.network';
 
     // Ensure private key has 0x prefix
     let oracleKey: `0x${string}` | undefined;
@@ -197,6 +213,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check rate limit (10 requests per hour per wallet)
+    const rateLimit = checkRateLimit(playerAddress);
+    if (!rateLimit.allowed) {
+      const resetInMinutes = Math.ceil((rateLimit.resetAt - Date.now()) / (60 * 1000));
+      return NextResponse.json(
+        { 
+          error: `Rate limit exceeded. Maximum 10 evaluations per hour. Try again in ${resetInMinutes} minute(s).`,
+          rateLimit: {
+            remaining: 0,
+            resetAt: rateLimit.resetAt,
+          }
+        },
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': '10',
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': rateLimit.resetAt.toString(),
+            'Retry-After': resetInMinutes.toString(),
+          }
+        }
+      );
+    }
+
     // Validate contract address format
     if (!gameAddress.startsWith('0x') || gameAddress.length !== 42) {
       console.error('Invalid game address format:', gameAddress);
@@ -208,11 +248,8 @@ export async function POST(request: NextRequest) {
 
     // Fallback RPC URLs
     const fallbackRpcUrls = [
-      'https://avax-fuji.g.alchemy.com/v2/AHvxVXQVrlt9ju46izVeM',
       rpcUrl,
-      'https://api.avax-test.network/ext/bc/C/rpc',
-      'https://avalanche-fuji-c-chain-rpc.publicnode.com',
-      'https://fuji.drpc.org',
+      'https://api.infra.testnet.somnia.network',
     ].filter(Boolean) as string[];
 
     console.log('Attempting to read contract state:', {
@@ -233,7 +270,7 @@ export async function POST(request: NextRequest) {
       try {
         console.log(`Trying RPC: ${rpc.substring(0, 50)}...`);
         const publicClient = createPublicClient({
-          chain: avalancheFuji,
+          chain: somniaTestnet,
           transport: http(rpc, {
             timeout: 10000, // 10 second timeout
           }),
@@ -377,7 +414,7 @@ export async function POST(request: NextRequest) {
     try {
       const walletClient = createWalletClient({
         account,
-        chain: avalancheFuji,
+        chain: somniaTestnet,
         transport: http(signingRpc, {
           timeout: 10000, // 10 second timeout
         }),
@@ -416,6 +453,12 @@ export async function POST(request: NextRequest) {
         success: result.success,
         signature,
         nonce: nonce.toString(),
+      }, {
+        headers: {
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetAt.toString(),
+        }
       });
     } catch (signingError: any) {
       console.error('Signing error:', signingError);

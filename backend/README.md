@@ -25,8 +25,7 @@ CHEMICAL_INVENTORY_ADDRESS=0x...
 PHARMACY_ADDRESS=0x...
 
 # Network
-FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-FUJI_WS_URL=wss://api.avax-test.network/ext/bc/C/ws
+RONIN_RPC_URL=https://saigon-testnet.roninchain.com/rpc
 
 # Backend Wallet (for signing formula evaluations)
 TRUSTED_ORACLE_PRIVATE_KEY=your-private-key-here

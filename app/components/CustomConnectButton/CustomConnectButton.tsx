@@ -2,13 +2,24 @@
 
 import { useAccount, useDisconnect } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 export default function CustomConnectButton() {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const [showMenu, setShowMenu] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Show nothing during SSR to prevent hydration mismatch
+  if (!mounted) {
+    return <ConnectButton showBalance={{ smallScreen: false, largeScreen: false }} />;
+  }
 
   // When not connected, show RainbowKit's ConnectButton
   if (!isConnected) {

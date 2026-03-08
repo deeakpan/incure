@@ -16,8 +16,10 @@ import { useGameStore } from './store/gameStore';
 import { useEffect, useState } from 'react';
 import { REGION_ISOS } from './utils/regionData';
 import { Toast } from './components/Toast/Toast';
-import { useAccount, useReadContract } from 'wagmi';
+import { useAccount, useReadContract, usePublicClient } from 'wagmi';
 import { formatEther } from 'viem';
+import { useReactivitySubscription } from './hooks/useReactivitySubscription';
+import { REGIONS } from './utils/regionData';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
@@ -40,6 +42,9 @@ export default function Home() {
   const [tokenAddress, setTokenAddress] = useState<`0x${string}` | undefined>(
     (process.env.NEXT_PUBLIC_TOKEN_CONTRACT_ADDRESS as `0x${string}` | undefined)
   );
+
+  // Set up Somnia Reactivity subscription for real-time event updates
+  useReactivitySubscription();
 
   // Fetch token balance when wallet is connected
   const { data: balanceData, refetch: refetchBalance } = useReadContract({
@@ -71,31 +76,56 @@ export default function Home() {
     }
   }, [tokenAddress, isConnected, address, refetchBalance]);
 
-  // Fetch real data from backend on mount
+  const publicClient = usePublicClient();
+
+  // Fetch real data from contract on mount (Reactivity handles updates)
   useEffect(() => {
-    // Fetch infection data from backend
-    const fetchGameState = async () => {
+    // Read all region infections directly from contract
+    const fetchGameStateFromContract = async () => {
+      const gameAddress = process.env.NEXT_PUBLIC_GAME_CONTRACT_ADDRESS as `0x${string}` | undefined;
+      if (!gameAddress || !publicClient) {
+        console.warn('⚠️ Cannot fetch from contract: missing address or client');
+        return;
+      }
+
       try {
-        const response = await fetch(`${BACKEND_URL}/api/gamestate`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
+        console.log('📖 Reading all region infections from contract...');
+        const GAME_ABI = [
+          {
+            type: 'function',
+            name: 'regionInfection',
+            inputs: [{ name: 'regionId', type: 'uint8' }],
+            outputs: [{ name: '', type: 'uint8' }],
+            stateMutability: 'view',
           },
+        ] as const;
+
+        // Read all 20 regions in parallel
+        const regionPromises = Object.entries(REGIONS).map(async ([regionIdStr, region]) => {
+          const regionId = Number(regionIdStr);
+          try {
+            const infection = await publicClient.readContract({
+              address: gameAddress,
+              abi: GAME_ABI,
+              functionName: 'regionInfection',
+              args: [regionId],
+            });
+            return { iso: region.iso, pct: Number(infection) };
+          } catch (error) {
+            console.error(`Error reading region ${regionId}:`, error);
+            return null;
+          }
         });
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Fetched REAL data from backend:', data);
-          // Update infection data for each region
-          Object.entries(data).forEach(([iso, pct]) => {
-            updateInfection(iso, pct as number);
-          });
-        } else {
-          console.error('Failed to fetch game state:', response.status, response.statusText);
-        }
+
+        const results = await Promise.all(regionPromises);
+        const validResults = results.filter((r): r is { iso: string; pct: number } => r !== null);
+        
+        console.log(`✅ Read ${validResults.length} regions from contract:`, validResults);
+        validResults.forEach(({ iso, pct }) => {
+          updateInfection(iso, pct);
+        });
       } catch (error) {
-        console.error('Error fetching game state:', error);
-        // Fallback: if backend is not available, use empty data
-        // Map will still render but with no infection data
+        console.error('Error fetching game state from contract:', error);
       }
     };
 
@@ -138,7 +168,7 @@ export default function Home() {
     };
 
     // Fetch all data in parallel, but don't block map rendering if backend is down
-    Promise.all([fetchGameState(), fetchLeaderboard(), fetchContractState()])
+    Promise.all([fetchGameStateFromContract(), fetchLeaderboard(), fetchContractState()])
       .then(() => {
         setMapReady(true);
       })
@@ -160,18 +190,19 @@ export default function Home() {
       });
     }, 1000);
 
-    // Poll for updates every 10 seconds
+    // Poll for updates every 30 seconds (reduced frequency since Reactivity handles real-time events)
+    // Reactivity will update infections/strain instantly, but we still poll for leaderboard and countdown
     const pollInterval = setInterval(() => {
-      fetchGameState();
-      fetchLeaderboard();
-      fetchContractState(); // Refresh contract state (strain, countdown)
-    }, 10000);
+      fetchLeaderboard(); // Leaderboard still needs polling
+      fetchContractState(); // Refresh contract state (countdown)
+      // Note: fetchGameState() removed - Reactivity handles infection updates in real-time
+    }, 30000);
 
     return () => {
       clearInterval(interval);
       clearInterval(pollInterval);
     };
-  }, [updateInfection, setSpreadCountdown, setLeaderboard, setStrain, tokenAddress]);
+  }, [updateInfection, setSpreadCountdown, setLeaderboard, setStrain, tokenAddress, publicClient]);
 
   const handleRegionClick = (iso: string) => {
     selectRegion(iso);

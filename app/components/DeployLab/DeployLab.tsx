@@ -73,13 +73,15 @@ const GAME_ABI = [
 ] as const;
 
 export default function DeployLab() {
-  const { selectedRegion, inventory, selectRegion } = useGameStore();
+  const { selectedRegion, inventory, selectRegion, infectionData } = useGameStore();
   const { address, isConnected } = useAccount();
   const [selectedChemicals, setSelectedChemicals] = useState<SelectedChemical[]>([]);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [evaluationResult, setEvaluationResult] = useState<EvaluationResult | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [evaluationError, setEvaluationError] = useState<string | null>(null);
+  const [rateLimitRemaining, setRateLimitRemaining] = useState<number | null>(null);
+  const [rateLimitResetAt, setRateLimitResetAt] = useState<number | null>(null);
   const [activeRarityTab, setActiveRarityTab] = useState<'common' | 'uncommon' | 'rare'>('common');
 
   const { writeContract: writeDeploy, isPending: isDeploying, data: deployHash } = useWriteContract();
@@ -129,11 +131,11 @@ export default function DeployLab() {
     ? REGIONS[REGION_ISOS.indexOf(selectedRegion) as keyof typeof REGIONS]
     : null;
   const regionId = selectedRegion ? REGION_ISOS.indexOf(selectedRegion) : null;
-  const infectionPct = selectedRegion ? useGameStore.getState().infectionData[selectedRegion] || 0 : 0;
+  const infectionPct = selectedRegion ? (infectionData[selectedRegion] || 0) : 0;
 
   const totalRatio = selectedChemicals.reduce((sum, chem) => sum + chem.ratio, 0);
   const canEvaluate = selectedChemicals.length === 3 && totalRatio === 100;
-  const canDeploy = evaluationResult !== null && !isDeploying && !isConfirming && isApproved === true;
+  const canDeploy = evaluationResult !== null && !isDeploying && !isConfirming && isApproved === true && infectionPct > 0;
 
   const handleAddChemical = (chemId: number) => {
     if (activeSlot === null) return;
@@ -206,8 +208,24 @@ export default function DeployLab() {
         }),
       });
 
+      // Extract rate limit info from headers
+      const remaining = response.headers.get('X-RateLimit-Remaining');
+      const resetAt = response.headers.get('X-RateLimit-Reset');
+      
+      if (remaining !== null) {
+        setRateLimitRemaining(parseInt(remaining, 10));
+      }
+      if (resetAt !== null) {
+        setRateLimitResetAt(parseInt(resetAt, 10));
+      }
+
       if (!response.ok) {
         const error = await response.json();
+        // Update rate limit info from error response if available
+        if (error.rateLimit) {
+          setRateLimitRemaining(0);
+          setRateLimitResetAt(error.rateLimit.resetAt);
+        }
         throw new Error(error.error || 'Evaluation failed');
       }
 
@@ -234,7 +252,16 @@ export default function DeployLab() {
   }, [approveHash, isConfirmingApprove, refetchApproval]);
 
   const handleDeploy = () => {
-    if (!canDeploy || !evaluationResult || !selectedRegion || regionId === null || !GAME_CONTRACT_ADDRESS) return;
+    // Check infection FIRST - this is the critical check
+    if (!selectedRegion) return;
+    const currentInfection = infectionData[selectedRegion] || 0;
+    if (currentInfection === 0) {
+      setEvaluationError('Cannot deploy to a cured region (0% infection)');
+      return;
+    }
+    
+    // Then check other conditions
+    if (!canDeploy || !evaluationResult || regionId === null || !GAME_CONTRACT_ADDRESS) return;
 
     const chemIds = selectedChemicals.map((c) => c.id) as [number, number, number];
     const ratios = selectedChemicals.map((c) => c.ratio) as [number, number, number];
@@ -499,19 +526,29 @@ export default function DeployLab() {
                 </div>
               )}
 
+              {/* Rate Limit Display */}
+              {rateLimitRemaining !== null && (
+                <div className="mb-2 text-xs text-[#6a8f72] flex items-center justify-between">
+                  <span>Evaluations remaining this hour:</span>
+                  <span className={`font-bold ${rateLimitRemaining === 0 ? 'text-[#c62828]' : rateLimitRemaining <= 3 ? 'text-[#ff6f00]' : 'text-[#00aa55]'}`}>
+                    {rateLimitRemaining} / 10
+                  </span>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <motion.button
                   onClick={handleEvaluate}
-                  disabled={!canEvaluate || isEvaluating}
+                  disabled={!canEvaluate || isEvaluating || (rateLimitRemaining !== null && rateLimitRemaining === 0)}
                   className="flex-1 py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5"
                   style={{
-                    background: canEvaluate && !isEvaluating ? 'linear-gradient(90deg, #00aa55, #00cc66)' : 'rgba(0,170,85,0.2)',
-                    color: canEvaluate && !isEvaluating ? '#060a0d' : '#6a8f72',
-                    opacity: canEvaluate && !isEvaluating ? 1 : 0.5,
+                    background: canEvaluate && !isEvaluating && (rateLimitRemaining === null || rateLimitRemaining > 0) ? 'linear-gradient(90deg, #00aa55, #00cc66)' : 'rgba(0,170,85,0.2)',
+                    color: canEvaluate && !isEvaluating && (rateLimitRemaining === null || rateLimitRemaining > 0) ? '#060a0d' : '#6a8f72',
+                    opacity: canEvaluate && !isEvaluating && (rateLimitRemaining === null || rateLimitRemaining > 0) ? 1 : 0.5,
                   }}
-                  whileHover={canEvaluate && !isEvaluating ? { scale: 1.02 } : {}}
-                  whileTap={canEvaluate && !isEvaluating ? { scale: 0.98 } : {}}
+                  whileHover={canEvaluate && !isEvaluating && (rateLimitRemaining === null || rateLimitRemaining > 0) ? { scale: 1.02 } : {}}
+                  whileTap={canEvaluate && !isEvaluating && (rateLimitRemaining === null || rateLimitRemaining > 0) ? { scale: 0.98 } : {}}
                 >
                   {isEvaluating ? (
                     <>
@@ -547,18 +584,24 @@ export default function DeployLab() {
                     )}
                   </motion.button>
                 ) : (
-                  <motion.button
-                    onClick={handleDeploy}
-                    disabled={!canDeploy}
-                    className="flex-1 py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5"
-                    style={{
-                      background: canDeploy ? 'linear-gradient(90deg, #00aaff, #0088cc)' : 'rgba(0,170,255,0.2)',
-                      color: canDeploy ? '#060a0d' : '#6a8f72',
-                      opacity: canDeploy ? 1 : 0.5,
-                    }}
-                    whileHover={canDeploy ? { scale: 1.02 } : {}}
-                    whileTap={canDeploy ? { scale: 0.98 } : {}}
-                  >
+                  <>
+                    {infectionPct === 0 && evaluationResult !== null && (
+                      <div className="mb-2 text-xs text-[#6a8f72] text-center">
+                        This region is already cured (0% infection)
+                      </div>
+                    )}
+                    <motion.button
+                      onClick={canDeploy ? handleDeploy : undefined}
+                      disabled={!canDeploy}
+                      className={`flex-1 py-2 px-3 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 ${!canDeploy ? 'cursor-not-allowed pointer-events-none' : ''}`}
+                      style={{
+                        background: canDeploy ? 'linear-gradient(90deg, #00aaff, #0088cc)' : 'rgba(0,170,255,0.2)',
+                        color: canDeploy ? '#060a0d' : '#6a8f72',
+                        opacity: canDeploy ? 1 : 0.5,
+                      }}
+                      whileHover={canDeploy ? { scale: 1.02 } : {}}
+                      whileTap={canDeploy ? { scale: 0.98 } : {}}
+                    >
                     {isDeploying || isConfirming ? (
                       <>
                         <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -571,6 +614,7 @@ export default function DeployLab() {
                       </>
                     )}
                   </motion.button>
+                  </>
                 )}
               </div>
 

@@ -246,7 +246,7 @@ function FieldLabSection() {
       address: CHEMICAL_INVENTORY_ADDRESS,
       abi: CHEMICAL_INVENTORY_ABI,
       functionName: 'buyFieldLab',
-      value: BigInt('50000000000000000'), // 0.05 AVAX
+      value: BigInt('50000000000000000'), // 0.05 STT
     });
   };
 
@@ -280,7 +280,7 @@ function FieldLabSection() {
             className="w-full py-2.5 rounded-lg text-sm font-bold text-[#060a0d] transition-all"
             style={{ background: 'linear-gradient(90deg, #00aa55, #00cc66)' }}
           >
-            {isBuying ? 'Processing...' : 'Buy Field Lab (0.05 AVAX)'}
+            {isBuying ? 'Processing...' : 'Buy Field Lab (0.05 STT)'}
           </motion.button>
         </div>
       ) : (

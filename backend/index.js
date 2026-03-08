@@ -53,7 +53,11 @@ app.get('/api/gamestate', async (req, res) => {
     });
     res.json(gameState);
   } catch (error) {
-    console.error('Error getting game state:', error);
+    const errorMsg = error?.message || String(error);
+    // Suppress timeout errors - they're expected if Supabase is slow/down
+    if (!errorMsg.includes('timeout') && !errorMsg.includes('TIMEOUT') && !errorMsg.includes('ConnectTimeout')) {
+      console.error('Error getting game state:', errorMsg);
+    }
     res.status(500).json({ error: 'Failed to get game state' });
   }
 });
@@ -66,7 +70,11 @@ app.get('/api/leaderboard', async (req, res) => {
       score: parseFloat(r.total_incure),
     })));
   } catch (error) {
-    console.error('Error getting leaderboard:', error);
+    const errorMsg = error?.message || String(error);
+    // Suppress timeout errors - they're expected if Supabase is slow/down
+    if (!errorMsg.includes('timeout') && !errorMsg.includes('TIMEOUT') && !errorMsg.includes('ConnectTimeout')) {
+      console.error('Error getting leaderboard:', errorMsg);
+    }
     res.status(500).json({ error: 'Failed to get leaderboard' });
   }
 });
@@ -84,12 +92,14 @@ app.get('/api/chemicals', async (req, res) => {
 // Get live contract state (strain, spread countdown)
 app.get('/api/contract-state', async (req, res) => {
   try {
-    if (!process.env.INCURE_GAME_ADDRESS || !process.env.FUJI_RPC_URL) {
+    if (!process.env.INCURE_GAME_ADDRESS || !process.env.SOMNIA_TESTNET_RPC_URL) {
       return res.status(503).json({ error: 'Contract address not configured' });
     }
 
     const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(process.env.FUJI_RPC_URL);
+    // ethers v6: JsonRpcProvider(url, network?, options?)
+    // Let it auto-detect network from RPC
+    const provider = new ethers.JsonRpcProvider(process.env.SOMNIA_TESTNET_RPC_URL);
     
     const GAME_ABI = [
       'function currentStrain() view returns (uint8)',
@@ -119,7 +129,11 @@ app.get('/api/contract-state', async (req, res) => {
       tokenAddress: process.env.INCURE_TOKEN_ADDRESS || null,
     });
   } catch (error) {
-    console.error('Error getting contract state:', error);
+    // Suppress timeout errors - they're expected if RPC is slow/down
+    const errorMsg = error?.message || String(error);
+    if (!errorMsg.includes('timeout') && !errorMsg.includes('TIMEOUT')) {
+      console.error('Error getting contract state:', errorMsg);
+    }
     res.status(500).json({ error: 'Failed to get contract state' });
   }
 });
@@ -128,18 +142,29 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Start event listener
-if (process.env.INCURE_GAME_ADDRESS && process.env.FUJI_WS_URL) {
-  startListener(process.env.INCURE_GAME_ADDRESS, process.env.FUJI_WS_URL);
+// Start event listener (Somnia Reactivity)
+if (process.env.INCURE_GAME_ADDRESS && process.env.SOMNIA_TESTNET_RPC_URL) {
+  console.log('🔮 Starting Somnia Reactivity listener...');
+  startListener(process.env.INCURE_GAME_ADDRESS);
+} else {
+  console.warn('⚠️  Reactivity listener NOT started. Missing:');
+  if (!process.env.INCURE_GAME_ADDRESS) console.warn('   - INCURE_GAME_ADDRESS');
+  if (!process.env.SOMNIA_TESTNET_RPC_URL) console.warn('   - SOMNIA_TESTNET_RPC_URL');
 }
 
 // Start cron jobs
-if (process.env.INCURE_GAME_ADDRESS && process.env.FUJI_RPC_URL && process.env.DEPLOYER_PRIVATE_KEY) {
+if (process.env.INCURE_GAME_ADDRESS && process.env.SOMNIA_TESTNET_RPC_URL && process.env.DEPLOYER_PRIVATE_KEY) {
+  console.log('⏰ Starting cron jobs...');
   startCronJobs(
     process.env.INCURE_GAME_ADDRESS,
-    process.env.FUJI_RPC_URL,
+    process.env.SOMNIA_TESTNET_RPC_URL,
     process.env.DEPLOYER_PRIVATE_KEY
   );
+} else {
+  console.warn('⚠️  Cron jobs NOT started. Missing:');
+  if (!process.env.INCURE_GAME_ADDRESS) console.warn('   - INCURE_GAME_ADDRESS');
+  if (!process.env.SOMNIA_TESTNET_RPC_URL) console.warn('   - SOMNIA_TESTNET_RPC_URL');
+  if (!process.env.DEPLOYER_PRIVATE_KEY) console.warn('   - DEPLOYER_PRIVATE_KEY');
 }
 
 server.listen(PORT, () => {

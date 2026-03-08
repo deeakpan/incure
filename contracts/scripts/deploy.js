@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 async function main() {
   const [deployer] = await ethers.getSigners();
   console.log("Deploying contracts with account:", deployer.address);
-  console.log("Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "AVAX");
+  console.log("Account balance:", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "RON");
 
   // ── TREASURY ADDRESS ──
   // Change this to your actual treasury multisig before mainnet deployment
@@ -77,7 +77,7 @@ async function main() {
   console.log("\nCurrent emission rate:", ethers.formatEther(emissionRate), "INCURE per 1% cured");
 
   console.log("\n=== Deployment Summary ===");
-  console.log("Network:            Avalanche Fuji Testnet");
+  console.log("Network:            Ronin Testnet (Saigon)");
   console.log("Deployer:           ", deployer.address);
   console.log("Treasury:           ", TREASURY_ADDRESS);
   console.log("Trusted Oracle:     ", TRUSTED_ORACLE_ADDRESS);

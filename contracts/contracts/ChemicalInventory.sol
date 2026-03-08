@@ -114,7 +114,7 @@ contract ChemicalInventory is ERC1155, Ownable, ReentrancyGuard {
     }
 
     function buyFieldLab() external payable nonReentrant {
-        require(msg.value == FIELD_LAB_STAKE, "Must pay exactly 0.05 AVAX");
+        require(msg.value == FIELD_LAB_STAKE, "Must pay exactly 0.05 STT");
         require(fieldLabs[msg.sender].slots == 0, "Already has field lab");
         
         // Write state before external call
@@ -125,7 +125,7 @@ contract ChemicalInventory is ERC1155, Ownable, ReentrancyGuard {
         });
 
         (bool success, ) = payable(treasury).call{value: FIELD_LAB_STAKE}("");
-        require(success, "Failed to send AVAX to treasury");
+        require(success, "Failed to send STT to treasury");
 
         emit FieldLabPurchased(msg.sender);
     }
