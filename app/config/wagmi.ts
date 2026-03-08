@@ -2,7 +2,7 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { defineChain } from 'viem';
 
 // Somnia Testnet
-const somniaTestnet = defineChain({
+export const somniaTestnet = defineChain({
   id: 50312,
   name: 'Somnia Testnet',
   nativeCurrency: {

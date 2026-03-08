@@ -17,7 +17,7 @@ interface GameState {
   currentStrain: number;
   
   // Leaderboard
-  leaderboard: Array<{ address: string; score: number }>;
+  leaderboard: Array<{ address: string; score: number; deployments: number }>;
   
   // Spread countdown (seconds)
   spreadCountdown: number;
@@ -31,7 +31,7 @@ interface GameState {
   updateInventory: (chemId: number, quantity: number) => void;
   setBalance: (balance: string) => void;
   setStrain: (strain: number) => void;
-  setLeaderboard: (leaderboard: Array<{ address: string; score: number }>) => void;
+  setLeaderboard: (leaderboard: Array<{ address: string; score: number; deployments: number }>) => void;
   setSpreadCountdown: (seconds: number | ((prev: number) => number)) => void;
   setSidebarOpen: (open: boolean) => void;
 }

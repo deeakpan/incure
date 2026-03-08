@@ -21,7 +21,7 @@ import { formatEther } from 'viem';
 import { useReactivitySubscription } from './hooks/useReactivitySubscription';
 import { REGIONS } from './utils/regionData';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// Backend removed - all data now read from contract/Data Streams
 
 // ERC20 balanceOf ABI
 const ERC20_ABI = [
@@ -129,39 +129,88 @@ export default function Home() {
       }
     };
 
-    // Fetch leaderboard
+    // Fetch leaderboard from Data Streams
     const fetchLeaderboard = async () => {
+      const gameAddress = process.env.NEXT_PUBLIC_GAME_CONTRACT_ADDRESS as `0x${string}` | undefined;
+      if (!gameAddress) {
+        console.warn('⚠️ Game contract address not set, skipping leaderboard fetch');
+        return;
+      }
+
       try {
-        const response = await fetch(`${BACKEND_URL}/api/leaderboard`);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Fetched REAL leaderboard from backend:', data);
-          setLeaderboard(data);
-        } else {
-          console.error('Failed to fetch leaderboard');
+        console.log('📊 Fetching leaderboard from Data Streams...');
+        const { getLeaderboard } = await import('./lib/dataStreams');
+        const leaderboard = await getLeaderboard(gameAddress, 10);
+        console.log('✅ Fetched leaderboard from Data Streams:', leaderboard);
+        if (leaderboard.length === 0) {
+          console.warn('⚠️ Leaderboard is empty - no successful deployments found yet');
         }
+        setLeaderboard(leaderboard);
       } catch (error) {
-        console.error('Error fetching leaderboard:', error);
+        console.error('❌ Error fetching leaderboard:', error);
+        setLeaderboard([]);
       }
     };
 
-    // Fetch live contract state (strain, spread countdown, token address)
+    // Fetch live contract state directly from contract
     const fetchContractState = async () => {
+      const gameAddress = process.env.NEXT_PUBLIC_GAME_CONTRACT_ADDRESS as `0x${string}` | undefined;
+      if (!gameAddress || !publicClient) {
+        return;
+      }
+
       try {
-        const response = await fetch(`${BACKEND_URL}/api/contract-state`);
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Fetched REAL contract state:', data);
-          setStrain(data.currentStrain);
-          setSpreadCountdown(data.spreadCountdown);
-          // Update token address from backend if not set in env
-          if (data.tokenAddress && !tokenAddress) {
-            setTokenAddress(data.tokenAddress as `0x${string}`);
-            console.log('✅ Set token address from backend:', data.tokenAddress);
-          }
-        } else {
-          console.error('Failed to fetch contract state');
-        }
+        const GAME_STATE_ABI = [
+          {
+            type: 'function',
+            name: 'currentStrain',
+            inputs: [],
+            outputs: [{ name: '', type: 'uint8' }],
+            stateMutability: 'view',
+          },
+          {
+            type: 'function',
+            name: 'lastSpreadTime',
+            inputs: [],
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+          },
+          {
+            type: 'function',
+            name: 'SPREAD_INTERVAL',
+            inputs: [],
+            outputs: [{ name: '', type: 'uint256' }],
+            stateMutability: 'view',
+          },
+        ] as const;
+
+        const [currentStrain, lastSpreadTime, spreadInterval] = await Promise.all([
+          publicClient.readContract({
+            address: gameAddress,
+            abi: GAME_STATE_ABI,
+            functionName: 'currentStrain',
+          }),
+          publicClient.readContract({
+            address: gameAddress,
+            abi: GAME_STATE_ABI,
+            functionName: 'lastSpreadTime',
+          }),
+          publicClient.readContract({
+            address: gameAddress,
+            abi: GAME_STATE_ABI,
+            functionName: 'SPREAD_INTERVAL',
+          }),
+        ]);
+
+        const now = Math.floor(Date.now() / 1000);
+        const lastSpread = Number(lastSpreadTime);
+        const interval = Number(spreadInterval);
+        const nextSpreadTime = lastSpread + interval;
+        const countdown = Math.max(0, nextSpreadTime - now);
+
+        setStrain(Number(currentStrain));
+        setSpreadCountdown(countdown);
+        console.log('✅ Fetched contract state from chain:', { currentStrain: Number(currentStrain), countdown });
       } catch (error) {
         console.error('Error fetching contract state:', error);
       }

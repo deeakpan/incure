@@ -8,6 +8,19 @@ import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "./ChemicalInventory.sol";
 import "./IncureToken.sol";
 
+/// @title IDataStreams - Interface for Somnia Data Streams contract
+interface IDataStreams {
+    struct DataStream {
+        bytes32 id;
+        bytes32 schemaId;
+        bytes data;
+    }
+
+    /// @notice Publish data to streams (esstores function)
+    /// @param streams Array of data streams to publish
+    function esstores(DataStream[] calldata streams) external;
+}
+
 contract InCureGame is Ownable, ReentrancyGuard {
 
     // ── REGION STATE ────────────────────────────────────────────────────────
@@ -47,6 +60,23 @@ contract InCureGame is Ownable, ReentrancyGuard {
     ChemicalInventory public chemicalInventory;
     IncureToken        public incureToken;
     
+    // ── DATA STREAMS ───────────────────────────────────────────────────────────
+    // Somnia Data Streams contract address: 0xB1Ae08D3d1542eF9971A63Aede2dB8d0239c78d4
+    IDataStreams public immutable dataStreams;
+    
+    // Schema IDs (computed from schema strings, set in constructor)
+    // Schema: "uint64 timestamp, uint8 regionId, uint8 infectionPct"
+    bytes32 public immutable regionInfectionSchemaId;
+    
+    // Schema: "uint64 timestamp, address player, uint8 regionId, uint8 cureEffect, bool success"
+    bytes32 public immutable antidoteDeploymentSchemaId;
+    
+    // Schema: "uint64 timestamp, uint8 newStrain"
+    bytes32 public immutable mutationSchemaId;
+    
+    // Schema: "uint64 timestamp, uint8 season, uint8[20] regionInfections"
+    bytes32 public immutable gameStateSchemaId;
+    
     event AntidoteDeployed(address indexed player, uint8 regionId, uint8 cureEffect, bool success);
     event InfectionSpread(uint8[] regionIds, uint8[] newPcts);
     event PathogenMutated(uint8 newStrain);
@@ -58,17 +88,30 @@ contract InCureGame is Ownable, ReentrancyGuard {
     constructor(
         address _chemicalInventory,
         address _incureToken,
-        address _trustedOracle
+        address _trustedOracle,
+        address _dataStreams,
+        bytes32 _regionInfectionSchemaId,
+        bytes32 _antidoteDeploymentSchemaId,
+        bytes32 _mutationSchemaId,
+        bytes32 _gameStateSchemaId
     ) Ownable(msg.sender) {
         require(
             _chemicalInventory != address(0) && 
             _incureToken != address(0) && 
-            _trustedOracle != address(0),
+            _trustedOracle != address(0) &&
+            _dataStreams != address(0),
             "Invalid addresses"
         );
         chemicalInventory = ChemicalInventory(payable(_chemicalInventory));
         incureToken = IncureToken(_incureToken);
         trustedOracle = _trustedOracle;
+        dataStreams = IDataStreams(_dataStreams);
+        
+        // Set schema IDs (computed off-chain using SDK)
+        regionInfectionSchemaId = _regionInfectionSchemaId;
+        antidoteDeploymentSchemaId = _antidoteDeploymentSchemaId;
+        mutationSchemaId = _mutationSchemaId;
+        gameStateSchemaId = _gameStateSchemaId;
         
         currentStrain = 1;
         currentSeason = 1;
@@ -80,6 +123,9 @@ contract InCureGame is Ownable, ReentrancyGuard {
         formulaSeed = keccak256(abi.encodePacked(block.prevrandao, block.timestamp, msg.sender));
 
         _initializeRegions();
+        
+        // Publish initial game state to Data Streams
+        _publishGameState();
     }
     
     function _initializeRegions() internal {
@@ -180,6 +226,12 @@ contract InCureGame is Ownable, ReentrancyGuard {
         }
         
         emit AntidoteDeployed(msg.sender, regionId, cureEffect, success);
+        
+        // Publish to Data Streams
+        _publishAntidoteDeployment(msg.sender, regionId, cureEffect, success);
+        
+        // Publish updated region infection
+        _publishRegionInfection(regionId, regionInfection[regionId]);
     }
     
     // Rotate formula seed every 24 hours - anyone can call, backend cron does it
@@ -216,6 +268,13 @@ contract InCureGame is Ownable, ReentrancyGuard {
         }
         
         emit InfectionSpread(affectedRegions, newPcts);
+        
+        // Publish all updated regions to Data Streams
+        for (uint256 i = 0; i < affectedRegions.length; i++) {
+            if (affectedRegions[i] > 0 || newPcts[i] > 0) {
+                _publishRegionInfection(affectedRegions[i], newPcts[i]);
+            }
+        }
     }
     
     function triggerMutation() external {
@@ -226,6 +285,9 @@ contract InCureGame is Ownable, ReentrancyGuard {
         // Formula derivation now happens off-chain from formulaSeed
         // No need to store formulas on-chain
         emit PathogenMutated(currentStrain);
+        
+        // Publish to Data Streams
+        _publishMutation(currentStrain);
     }
 
     // ── SEASON RESET ────────────────────────────────────────────────────────
@@ -248,6 +310,9 @@ contract InCureGame is Ownable, ReentrancyGuard {
         _initializeRegions();
 
         emit SeasonReset(currentSeason);
+        
+        // Publish new game state after season reset
+        _publishGameState();
     }
 
     function setTrustedOracle(address _trustedOracle) external onlyOwner {
@@ -274,5 +339,164 @@ contract InCureGame is Ownable, ReentrancyGuard {
         chemicalInventory.upgradeSlots(msg.sender, additionalSlots);
         
         emit FieldLabUpgraded(msg.sender, currentSlots + additionalSlots, totalCost);
+    }
+    
+    // ── DATA STREAMS HELPERS ────────────────────────────────────────────────────
+    
+    /// @notice Encode region infection data according to schema
+    /// Schema: "uint64 timestamp, uint8 regionId, uint8 infectionPct"
+    function _encodeRegionInfection(uint8 regionId, uint8 infectionPct) internal view returns (bytes memory) {
+        return abi.encodePacked(
+            uint64(block.timestamp),  // uint64 (8 bytes)
+            uint256(regionId),         // uint8 padded to uint256 (32 bytes)
+            uint256(infectionPct)      // uint8 padded to uint256 (32 bytes)
+        );
+    }
+    
+    /// @notice Encode antidote deployment data according to schema
+    /// Schema: "uint64 timestamp, address player, uint8 regionId, uint8 cureEffect, bool success"
+    function _encodeAntidoteDeployment(
+        address player,
+        uint8 regionId,
+        uint8 cureEffect,
+        bool success
+    ) internal view returns (bytes memory) {
+        return abi.encodePacked(
+            uint64(block.timestamp),           // uint64 (8 bytes)
+            uint256(uint160(player)),          // address (20 bytes, padded to 32)
+            uint256(regionId),                 // uint8 padded to uint256 (32 bytes)
+            uint256(cureEffect),               // uint8 padded to uint256 (32 bytes)
+            success ? uint256(1) : uint256(0)  // bool padded to uint256 (32 bytes)
+        );
+    }
+    
+    /// @notice Encode mutation data according to schema
+    /// Schema: "uint64 timestamp, uint8 newStrain"
+    function _encodeMutation(uint8 newStrain) internal view returns (bytes memory) {
+        return abi.encodePacked(
+            uint64(block.timestamp),  // uint64 (8 bytes)
+            uint256(newStrain)         // uint8 padded to uint256 (32 bytes)
+        );
+    }
+    
+    /// @notice Encode full game state according to schema
+    /// Schema: "uint64 timestamp, uint8 season, uint8[20] regionInfections"
+    function _encodeGameState() internal view returns (bytes memory) {
+        bytes memory data = abi.encodePacked(
+            uint64(block.timestamp),  // uint64 (8 bytes)
+            uint256(currentSeason)    // uint8 padded to uint256 (32 bytes)
+        );
+        
+        // Append all 20 region infections (each padded to uint256)
+        for (uint8 i = 0; i < 20; i++) {
+            data = abi.encodePacked(data, uint256(regionInfection[i]));
+        }
+        
+        return data;
+    }
+    
+    /// @notice Generate deterministic data ID for region infection
+    function _generateRegionInfectionId(uint8 regionId) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(this), "region", regionId, block.timestamp));
+    }
+    
+    /// @notice Generate deterministic data ID for antidote deployment
+    function _generateAntidoteDeploymentId(address player, uint8 regionId) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(this), "antidote", player, regionId, block.timestamp));
+    }
+    
+    /// @notice Generate deterministic data ID for mutation
+    function _generateMutationId() internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(this), "mutation", currentStrain, block.timestamp));
+    }
+    
+    /// @notice Generate deterministic data ID for game state
+    function _generateGameStateId() internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(address(this), "gamestate", currentSeason, block.timestamp));
+    }
+    
+    /// @notice Publish region infection update to Data Streams
+    function _publishRegionInfection(uint8 regionId, uint8 infectionPct) internal {
+        bytes memory data = _encodeRegionInfection(regionId, infectionPct);
+        bytes32 dataId = _generateRegionInfectionId(regionId);
+        
+        IDataStreams.DataStream[] memory streams = new IDataStreams.DataStream[](1);
+        streams[0] = IDataStreams.DataStream({
+            id: dataId,
+            schemaId: regionInfectionSchemaId,
+            data: data
+        });
+        
+        // Don't revert on failure - publishing is non-critical
+        try dataStreams.esstores(streams) {
+            // Success
+        } catch {
+            // Silently fail - publishing is non-critical
+        }
+    }
+    
+    /// @notice Publish antidote deployment to Data Streams
+    function _publishAntidoteDeployment(
+        address player,
+        uint8 regionId,
+        uint8 cureEffect,
+        bool success
+    ) internal {
+        bytes memory data = _encodeAntidoteDeployment(player, regionId, cureEffect, success);
+        bytes32 dataId = _generateAntidoteDeploymentId(player, regionId);
+        
+        IDataStreams.DataStream[] memory streams = new IDataStreams.DataStream[](1);
+        streams[0] = IDataStreams.DataStream({
+            id: dataId,
+            schemaId: antidoteDeploymentSchemaId,
+            data: data
+        });
+        
+        // Don't revert on failure - publishing is non-critical
+        try dataStreams.esstores(streams) {
+            // Success
+        } catch {
+            // Silently fail - publishing is non-critical
+        }
+    }
+    
+    /// @notice Publish mutation to Data Streams
+    function _publishMutation(uint8 newStrain) internal {
+        bytes memory data = _encodeMutation(newStrain);
+        bytes32 dataId = _generateMutationId();
+        
+        IDataStreams.DataStream[] memory streams = new IDataStreams.DataStream[](1);
+        streams[0] = IDataStreams.DataStream({
+            id: dataId,
+            schemaId: mutationSchemaId,
+            data: data
+        });
+        
+        // Don't revert on failure - publishing is non-critical
+        try dataStreams.esstores(streams) {
+            // Success
+        } catch {
+            // Silently fail - publishing is non-critical
+        }
+    }
+    
+    /// @notice Publish full game state to Data Streams
+    function _publishGameState() internal {
+        bytes memory data = _encodeGameState();
+        bytes32 dataId = _generateGameStateId();
+        
+        IDataStreams.DataStream[] memory streams = new IDataStreams.DataStream[](1);
+        streams[0] = IDataStreams.DataStream({
+            id: dataId,
+            schemaId: gameStateSchemaId,
+            data: data
+        });
+        
+        // Don't revert on failure - publishing is non-critical
+        try dataStreams.esstores(streams) {
+            // Success
+        } catch {
+            // Silently fail - publishing is non-critical
+        }
     }
 }

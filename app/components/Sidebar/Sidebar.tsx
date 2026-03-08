@@ -95,14 +95,21 @@ function ProfileSection() {
   const { address, isConnected } = useAccount();
   const { inventory, leaderboard } = useGameStore();
 
-  // Get user rank from leaderboard
+  // Get user rank, earned INCURE, and deployments from leaderboard
   const userRank = address && leaderboard.length > 0
     ? leaderboard.findIndex(entry => entry.address.toLowerCase() === address.toLowerCase()) + 1
     : null;
+  
+  const userEarned = address && leaderboard.length > 0
+    ? leaderboard.find(entry => entry.address.toLowerCase() === address.toLowerCase())?.score || 0
+    : 0;
 
-  // Mock stats (replace with real data later)
+  const userDeployments = address && leaderboard.length > 0
+    ? leaderboard.find(entry => entry.address.toLowerCase() === address.toLowerCase())?.deployments || 0
+    : 0;
+
   const stats = {
-    deploys: 42,
+    deploys: userDeployments,
     username: 'Morty',
     totalChemicals: Object.values(inventory).reduce((sum, qty) => sum + (qty || 0), 0),
   };
@@ -194,8 +201,11 @@ function ProfileSection() {
           }}
           whileHover={{ scale: 1.05, borderColor: '#00aaff' }}
         >
-          <div className="text-[10px] text-[#6a8f72] uppercase tracking-wider mb-1">Total</div>
-          <div className="text-base font-black text-[#00aaff] tabular-nums">{stats.totalChemicals}</div>
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <Sparkles className="w-3 h-3 text-[#00aaff]" />
+            <span className="text-[10px] text-[#6a8f72] uppercase tracking-wider">Earned</span>
+          </div>
+          <div className="text-base font-black text-[#00aaff] tabular-nums">{userEarned.toLocaleString()}</div>
         </motion.div>
       </div>
     </motion.div>

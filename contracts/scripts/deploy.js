@@ -16,6 +16,16 @@ async function main() {
   // On testnet, you can use deployer address, but create a separate wallet for production
   const TRUSTED_ORACLE_ADDRESS = deployer.address; // TODO: Change to backend wallet
 
+  // ── DATA STREAMS ──
+  // Somnia Data Streams contract address (same for testnet and mainnet)
+  const DATA_STREAMS_ADDRESS = "0xB1Ae08D3d1542eF9971A63Aede2dB8d0239c78d4";
+  
+  // Schema IDs - Computed using `node scripts/compute-schemas.js`
+  const REGION_INFECTION_SCHEMA_ID = "0x137abdabe8e064b2a1799b9d20b9ed6b6eab1da3cd73698ad887945baebbc0b4";
+  const ANTIDOTE_DEPLOYMENT_SCHEMA_ID = "0x6384755d2e985e048fde38ae0e02f58047be6458d13ae799e636809f7127eb11";
+  const MUTATION_SCHEMA_ID = "0x68fb518b085dc23743b4eb7accc380b15d16be7c9cfc1194739b75406132e97d";
+  const GAME_STATE_SCHEMA_ID = "0x6c1cd97255efd890b742ac83af75d41895553e1216d1f18d17fcdfcd1e50f527";
+
   // 1. Deploy IncureToken
   // Constructor now requires deployer address for initial 20% mint
   console.log("\nDeploying IncureToken...");
@@ -51,14 +61,25 @@ async function main() {
   console.log("Pharmacy deployed to:", pharmacyAddress);
 
   // 4. Deploy InCureGame
-  // Now requires trustedOracle address for signature verification
+  // Now requires trustedOracle, dataStreams, and schema IDs
   console.log("\nDeploying InCureGame...");
+  console.log("⚠️  Make sure you've computed schema IDs first (run: node scripts/compute-schemas.js)");
   const InCureGame = await ethers.getContractFactory("InCureGame");
-  const game = await InCureGame.deploy(chemAddress, tokenAddress, TRUSTED_ORACLE_ADDRESS);
+  const game = await InCureGame.deploy(
+    chemAddress,
+    tokenAddress,
+    TRUSTED_ORACLE_ADDRESS,
+    DATA_STREAMS_ADDRESS,
+    REGION_INFECTION_SCHEMA_ID,
+    ANTIDOTE_DEPLOYMENT_SCHEMA_ID,
+    MUTATION_SCHEMA_ID,
+    GAME_STATE_SCHEMA_ID
+  );
   await game.waitForDeployment();
   const gameAddress = await game.getAddress();
   console.log("InCureGame deployed to:", gameAddress);
   console.log("Trusted Oracle (backend wallet):", TRUSTED_ORACLE_ADDRESS);
+  console.log("Data Streams contract:", DATA_STREAMS_ADDRESS);
 
   // 5. Wire up contract addresses
   console.log("\nSetting contract permissions...");

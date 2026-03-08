@@ -13,81 +13,15 @@ if (result.error) {
   console.error('Error loading .env file:', result.error);
 } else {
   console.log('.env file loaded successfully');
-  console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'Found' : 'Missing');
-  console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Found' : 'Missing');
 }
 
-// Now import other modules that may use environment variables
+// Minimal backend - only handles cron jobs for triggering spread and rotating formula
+// All game state is now stored in Somnia Data Streams and read directly by the frontend
 import express from 'express';
-import cors from 'cors';
-import { createServer } from 'http';
-import { initDB, getGameState, getLeaderboard, getChemicals } from './db.js';
-import { initWebSocket } from './ws.js';
-import { startListener } from './listener.js';
 import { startCronJobs } from './cron.js';
 
 const app = express();
-const server = createServer(app);
 const PORT = process.env.PORT || 3001;
-
-// CORS configuration - allow all origins in development
-app.use(cors({
-  origin: true, // Allow all origins
-  credentials: true,
-}));
-app.use(express.json());
-
-// Initialize WebSocket
-initWebSocket(server);
-
-// Initialize database
-await initDB();
-
-// REST API endpoints
-app.get('/api/gamestate', async (req, res) => {
-  try {
-    const regions = await getGameState();
-    const gameState = {};
-    regions.forEach((r) => {
-      gameState[r.iso_code] = r.infection_pct;
-    });
-    res.json(gameState);
-  } catch (error) {
-    const errorMsg = error?.message || String(error);
-    // Suppress timeout errors - they're expected if Supabase is slow/down
-    if (!errorMsg.includes('timeout') && !errorMsg.includes('TIMEOUT') && !errorMsg.includes('ConnectTimeout')) {
-      console.error('Error getting game state:', errorMsg);
-    }
-    res.status(500).json({ error: 'Failed to get game state' });
-  }
-});
-
-app.get('/api/leaderboard', async (req, res) => {
-  try {
-    const leaderboard = await getLeaderboard(10);
-    res.json(leaderboard.map((r) => ({
-      address: r.address,
-      score: parseFloat(r.total_incure),
-    })));
-  } catch (error) {
-    const errorMsg = error?.message || String(error);
-    // Suppress timeout errors - they're expected if Supabase is slow/down
-    if (!errorMsg.includes('timeout') && !errorMsg.includes('TIMEOUT') && !errorMsg.includes('ConnectTimeout')) {
-      console.error('Error getting leaderboard:', errorMsg);
-    }
-    res.status(500).json({ error: 'Failed to get leaderboard' });
-  }
-});
-
-app.get('/api/chemicals', async (req, res) => {
-  try {
-    const chemicals = await getChemicals();
-    res.json(chemicals);
-  } catch (error) {
-    console.error('Error getting chemicals:', error);
-    res.status(500).json({ error: 'Failed to get chemicals' });
-  }
-});
 
 // Get live contract state (strain, spread countdown)
 app.get('/api/contract-state', async (req, res) => {
@@ -142,17 +76,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Start event listener (Somnia Reactivity)
-if (process.env.INCURE_GAME_ADDRESS && process.env.SOMNIA_TESTNET_RPC_URL) {
-  console.log('🔮 Starting Somnia Reactivity listener...');
-  startListener(process.env.INCURE_GAME_ADDRESS);
-} else {
-  console.warn('⚠️  Reactivity listener NOT started. Missing:');
-  if (!process.env.INCURE_GAME_ADDRESS) console.warn('   - INCURE_GAME_ADDRESS');
-  if (!process.env.SOMNIA_TESTNET_RPC_URL) console.warn('   - SOMNIA_TESTNET_RPC_URL');
-}
-
-// Start cron jobs
+// Start cron jobs (triggerSpread every 5 mins, rotateFormula every 24 hours)
 if (process.env.INCURE_GAME_ADDRESS && process.env.SOMNIA_TESTNET_RPC_URL && process.env.DEPLOYER_PRIVATE_KEY) {
   console.log('⏰ Starting cron jobs...');
   startCronJobs(
@@ -167,7 +91,8 @@ if (process.env.INCURE_GAME_ADDRESS && process.env.SOMNIA_TESTNET_RPC_URL && pro
   if (!process.env.DEPLOYER_PRIVATE_KEY) console.warn('   - DEPLOYER_PRIVATE_KEY');
 }
 
-server.listen(PORT, () => {
-  console.log(`Backend server running on port ${PORT}`);
-  console.log(`WebSocket server ready`);
+app.listen(PORT, () => {
+  console.log(`✅ Minimal backend server running on port ${PORT}`);
+  console.log(`📊 All game state is stored in Somnia Data Streams`);
+  console.log(`⏰ Cron jobs will trigger spread and rotate formula`);
 });

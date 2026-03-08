@@ -1,12 +1,20 @@
 'use client';
 
 import { useMemo } from 'react';
+import { useAccount } from 'wagmi';
 import { useGameStore } from '@/app/store/gameStore';
 import { REGION_ISOS } from '@/app/utils/regionData';
 import CustomConnectButton from '@/app/components/CustomConnectButton/CustomConnectButton';
 
 export default function HUD() {
-  const { infectionData, currentStrain, incureBalance, spreadCountdown, sidebarOpen } = useGameStore();
+  const { address } = useAccount();
+  const { infectionData, currentStrain, incureBalance, spreadCountdown, sidebarOpen, leaderboard } = useGameStore();
+  
+  // Get user rank from leaderboard
+  const userIndex = address && leaderboard.length > 0
+    ? leaderboard.findIndex(entry => entry.address.toLowerCase() === address.toLowerCase())
+    : -1;
+  const userRank = userIndex !== -1 ? userIndex + 1 : null;
 
   // Calculate global infection % (average of 20 active regions)
   const globalInfection = useMemo(() => {
@@ -83,6 +91,16 @@ export default function HUD() {
               {formatBalance(incureBalance)}
             </span>
           </div>
+
+          {/* Rank - only show if connected and has rank */}
+          {address && userRank !== null && userRank > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[#6a8f72] text-sm">Rank:</span>
+              <span className="font-bold tabular-nums text-sm" data-rank-value style={{ color: '#ffd700', WebkitTextFillColor: '#ffd700' }}>
+                #{userRank}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
