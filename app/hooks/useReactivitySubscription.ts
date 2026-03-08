@@ -128,21 +128,22 @@ export function useReactivitySubscription() {
             
             // Handle different possible data structures
             const eventData = data.result || data;
-            const eventTopic = eventData.topics?.[0];
+            const { topics, data: logData } = eventData;
             
-            if (!eventTopic) {
-              console.warn('⚠️ Received event with no topics:', eventData);
+            if (!topics || !logData) {
+              console.warn('⚠️ Event data missing topics or logData:', eventData);
               return;
             }
             
-            console.log('   Event topic:', eventTopic);
+            const topic0 = topics[0];
+            console.log('   Event topic:', topic0);
 
             // Decode AntidoteDeployed event
-            if (eventTopic.toLowerCase() === antidoteDeployedTopic.toLowerCase()) {
+            if (topic0.toLowerCase() === antidoteDeployedTopic.toLowerCase()) {
               const decoded = decodeEventLog({
                 abi: GAME_ABI,
-                topics: eventData.topics,
-                data: eventData.data,
+                topics,
+                data: logData,
               });
 
               if (decoded.eventName === 'AntidoteDeployed') {
@@ -184,11 +185,11 @@ export function useReactivitySubscription() {
               }
             }
             // Decode InfectionSpread event
-            else if (eventTopic.toLowerCase() === infectionSpreadTopic.toLowerCase()) {
+            else if (topic0.toLowerCase() === infectionSpreadTopic.toLowerCase()) {
               const decoded = decodeEventLog({
                 abi: GAME_ABI,
-                topics: eventData.topics,
-                data: eventData.data,
+                topics,
+                data: logData,
               });
 
               if (decoded.eventName === 'InfectionSpread') {
@@ -213,11 +214,11 @@ export function useReactivitySubscription() {
               }
             }
             // Decode PathogenMutated event
-            else if (eventTopic.toLowerCase() === pathogenMutatedTopic.toLowerCase()) {
+            else if (topic0.toLowerCase() === pathogenMutatedTopic.toLowerCase()) {
               const decoded = decodeEventLog({
                 abi: GAME_ABI,
-                topics: eventData.topics,
-                data: eventData.data,
+                topics,
+                data: logData,
               });
 
               if (decoded.eventName === 'PathogenMutated') {
