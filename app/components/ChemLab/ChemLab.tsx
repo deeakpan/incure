@@ -20,7 +20,7 @@ export default function ChemLab() {
   const isOpen = selectedRegion !== null;
   const regionData = useMemo(() => {
     if (!selectedRegion) return null;
-    const regionIndex = REGION_ISOS.indexOf(selectedRegion);
+    const regionIndex = REGION_ISOS.indexOf(selectedRegion as any);
     if (regionIndex < 0) return null;
     return REGIONS[regionIndex as keyof typeof REGIONS] || null;
   }, [selectedRegion]);
