@@ -8,24 +8,32 @@ const playfairDisplay = Playfair_Display({
   subsets: ["latin"],
   weight: ["700"],
   style: ["italic"],
+  display: "swap",
+  fallback: ["serif"],
 });
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  fallback: ["sans-serif"],
 });
 
 const orbitron = Orbitron({
   variable: "--font-orbitron",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800", "900"],
+  display: "swap",
+  fallback: ["sans-serif"],
 });
 
 const rajdhani = Rajdhani({
   variable: "--font-rajdhani",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  fallback: ["sans-serif"],
 });
 
 export const metadata: Metadata = {

@@ -18,7 +18,12 @@ export default function ChemLab() {
   const [showDeployLab, setShowDeployLab] = useState(false);
 
   const isOpen = selectedRegion !== null;
-  const regionData = selectedRegion ? REGIONS[REGION_ISOS.indexOf(selectedRegion) as keyof typeof REGIONS] : null;
+  const regionData = useMemo(() => {
+    if (!selectedRegion) return null;
+    const regionIndex = REGION_ISOS.indexOf(selectedRegion);
+    if (regionIndex < 0) return null;
+    return REGIONS[regionIndex as keyof typeof REGIONS] || null;
+  }, [selectedRegion]);
   const infectionPct = selectedRegion ? useGameStore.getState().infectionData[selectedRegion] || 0 : 0;
 
   // Reset deploy lab when region changes
