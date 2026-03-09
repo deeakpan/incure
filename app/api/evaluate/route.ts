@@ -263,7 +263,7 @@ export async function POST(request: NextRequest) {
     let formulaSeed: `0x${string}` | undefined;
     let nonce: bigint | undefined;
     let currentStrain: number | undefined;
-    let lastError: Error | null = null;
+    let lastError: any = null;
     let successfulRpc: string | null = null;
 
     for (const rpc of fallbackRpcUrls) {
