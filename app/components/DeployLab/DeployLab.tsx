@@ -128,9 +128,9 @@ export default function DeployLab() {
 
   const isOpen = selectedRegion !== null;
   const regionData = selectedRegion
-    ? REGIONS[REGION_ISOS.indexOf(selectedRegion) as keyof typeof REGIONS]
+    ? REGIONS[REGION_ISOS.indexOf(selectedRegion as any) as keyof typeof REGIONS]
     : null;
-  const regionId = selectedRegion ? REGION_ISOS.indexOf(selectedRegion) : null;
+  const regionId = selectedRegion ? REGION_ISOS.indexOf(selectedRegion as any) : null;
   const infectionPct = selectedRegion ? (infectionData[selectedRegion] || 0) : 0;
 
   const totalRatio = selectedChemicals.reduce((sum, chem) => sum + chem.ratio, 0);
