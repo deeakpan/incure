@@ -118,11 +118,11 @@ export default function Home() {
         });
 
         const results = await Promise.all(regionPromises);
-        const validResults = results.filter((r): r is { iso: string; pct: number } => r !== null);
+        const validResults = results.filter((r) => r !== null) as Array<{ iso: string; pct: number }>;
         
         console.log(`✅ Read ${validResults.length} regions from contract:`, validResults);
         validResults.forEach(({ iso, pct }) => {
-          updateInfection(iso, pct);
+          updateInfection(iso as any, pct);
         });
       } catch (error) {
         console.error('Error fetching game state from contract:', error);
