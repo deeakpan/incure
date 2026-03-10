@@ -122,9 +122,9 @@ function scoreFormula(
     return { cureEffect: 0, success: false };
   }
 
-  // Check ratios with 20% tolerance
+  // Check ratios with 10% tolerance
   let ratioScore = 0;
-  const TOLERANCE = 0.2; // 20%
+  const TOLERANCE = 0.1; // 10%
 
   for (let i = 0; i < playerChemIds.length; i++) {
     const playerId = playerChemIds[i];
